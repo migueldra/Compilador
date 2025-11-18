@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador de Compilador Aritmético</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <header>
+        <h1>Simulador de Compilador Aritmético</h1>
+        <p>
+          Ingresa una expresión aritmética para observar el proceso completo:
+          tokens, árbol de sintaxis abstracta, tablas semánticas y código de tres
+          direcciones. Si existe algún error, lo resaltaremos con precisión.
+        </p>
+      </header>
+
+      <form id="analyzer">
+        <label for="expression">Expresión aritmética</label>
+        <div class="input-group">
+          <input
+            id="expression"
+            type="text"
+            placeholder="Ejemplo: (3 + 5) * 2 - 4 / 2"
+            autocomplete="off"
+            required
+          />
+          <button type="submit">Analizar</button>
+        </div>
+        <div class="status" id="status"></div>
+        <div class="error-preview" id="errorPreview">
+          <span class="error-expression" id="errorExpression"></span>
+          <span id="errorMessage"></span>
+        </div>
+      </form>
+
+      <section class="results" id="results" hidden>
+        <article class="panel">
+          <h2>Tokens</h2>
+          <pre id="tokens"></pre>
+        </article>
+
+        <article class="panel">
+          <h2>Árbol de Sintaxis (AST)</h2>
+          <div class="ast-view">
+            <div class="ast-controls">
+              <button class="secondary" type="button" id="prevStep">◀ Paso anterior</button>
+              <span id="stepInfo" aria-live="polite">Paso 0 de 0</span>
+              <button class="secondary" type="button" id="nextStep">Paso siguiente ▶</button>
+            </div>
+            <div class="ast-graph-wrapper">
+              <svg id="astGraph" role="img" aria-label="Visualización del AST"></svg>
+            </div>
+          </div>
+          <pre id="ast"></pre>
+        </article>
+
+        <article class="panel">
+          <h2>Tabla de Símbolos</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Símbolo</th>
+                <th>Dirección</th>
+              </tr>
+            </thead>
+            <tbody id="symbolTable"></tbody>
+          </table>
+        </article>
+
+        <article class="panel">
+          <h2>Tabla de Tipos</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Símbolo</th>
+                <th>Tipo</th>
+              </tr>
+            </thead>
+            <tbody id="typeTable"></tbody>
+          </table>
+        </article>
+
+        <article class="panel">
+          <h2>Código de Tres Direcciones</h2>
+          <pre id="threeAddressCode"></pre>
+          <span class="badge" id="resultRef"></span>
+        </article>
+      </section>
+    </main>
+
+    <script>
+      // Mapa entre cada símbolo y el tipo de token que representa.
+      const tiposOperador = {
+        "+": "PLUS",
+        "-": "MINUS",
+        "*": "MUL",
+        "/": "DIV",
+        "(": "LPAREN",
+        ")": "RPAREN",
+      };
+
+      // Estado compartido que mantiene los elementos del grafo AST y el paso activo.
+      const estadoAst = {
+        nodos: [],
+        enlaces: [],
+        orden: [],
+        indicePorId: new Map(),
+        pasoActual: 0,
+        inicializado: false,
+      };
+
+      // Error especializado para problemas durante la fase léxica.
+      class ErrorLexico extends Error {
+        constructor(posicion, caracter) {
+          super(`Caracter no reconocido '${caracter}' en la posición ${posicion}.`);
+          this.name = "ErrorLexico";
+          this.position = posicion;
+          this.character = caracter;
+        }
+      }
+
+      // Error especializado para problemas durante el análisis sintáctico.
+      class ErrorSintactico extends Error {
+        constructor(message, position = null) {
+          const fullMessage =
+            position !== null ? `${message} en la posición ${position}.` : message;
+          super(fullMessage);
+          this.name = "ErrorSintactico";
+          this.position = position;
+        }
+      }
+
+      // Convierte una cadena de entrada en una lista tipada de tokens.
+      function tokenizar(expresion) {
+        const tokens = [];
+        let posicion = 0;
+
+        while (posicion < expresion.length) {
+          const caracter = expresion[posicion];
+
+          if (/\d/.test(caracter)) {
+            let inicio = posicion;
+            while (posicion < expresion.length && /\d/.test(expresion[posicion])) {
+              posicion += 1;
+            }
+            const valor = expresion.slice(inicio, posicion);
+            tokens.push({ type: "NUMBER", value: valor, position: inicio });
+            continue;
+          }
+
+          if (caracter in tiposOperador) {
+            tokens.push({ type: tiposOperador[caracter], value: caracter, position: posicion });
+            posicion += 1;
+            continue;
+          }
+
+          if (/\s/.test(caracter)) {
+            posicion += 1;
+            continue;
+          }
+
+          throw new ErrorLexico(posicion, caracter);
+        }
+
+        return tokens;
+      }
+
+      // Analizador sintáctico descendente que construye el AST respetando precedencias.
+      class AnalizadorSintactico {
+        constructor(tokens) {
+          this.tokens = tokens;
+          this.index = 0;
+        }
+
+        parse() {
+          if (this.tokens.length === 0) {
+            throw new ErrorSintactico("La expresión está vacía");
+          }
+
+          const node = this.parseExpression();
+
+          if (!this.atEnd()) {
+            const token = this.tokens[this.index];
+            throw new ErrorSintactico("Token inesperado", token.position);
+          }
+
+          return node;
+        }
+
+        parseExpression() {
+          let node = this.parseTerm();
+
+          while (this.match(new Set(["PLUS", "MINUS"]))) {
+            const operator = this.advance().value;
+            const right = this.parseTerm();
+            node = { type: "BinaryOp", operator, left: node, right };
+          }
+
+          return node;
+        }
+
+        parseTerm() {
+          let node = this.parseFactor();
+
+          while (this.match(new Set(["MUL", "DIV"]))) {
+            const operator = this.advance().value;
+            const right = this.parseFactor();
+            node = { type: "BinaryOp", operator, left: node, right };
+          }
+
+          return node;
+        }
+
+        parseFactor() {
+          if (this.match("NUMBER")) {
+            const token = this.advance();
+            return { type: "Number", value: Number(token.value) };
+          }
+
+          if (this.match("LPAREN")) {
+            this.advance();
+            const node = this.parseExpression();
+            if (!this.match("RPAREN")) {
+              const position = this.atEnd()
+                ? this.tokens[this.index - 1].position + 1
+                : this.tokens[this.index].position;
+              throw new ErrorSintactico("Se esperaba ')'", position);
+            }
+            this.advance();
+            return node;
+          }
+
+          const token = this.atEnd() ? null : this.tokens[this.index];
+          const position = token ? token.position : null;
+          throw new ErrorSintactico("Factor no válido", position);
+        }
+
+        match(types) {
+          if (typeof types === "string") {
+            types = new Set([types]);
+          }
+          if (this.atEnd()) return false;
+          return types.has(this.tokens[this.index].type);
+        }
+
+        advance() {
+          const token = this.tokens[this.index];
+          this.index += 1;
+          return token;
+        }
+
+        atEnd() {
+          return this.index >= this.tokens.length;
+        }
+      }
+
+      // Genera una salida textual compacta para los tokens obtenidos.
+      function formatTokens(tokens) {
+        return tokens
+          .map((token) =>
+            token.type === "NUMBER"
+              ? `<${token.type}, ${token.value}>`
+              : `<${token.type}>`
+          )
+          .join(" ");
+      }
+
+      // Construye una representación en texto del árbol de sintaxis abstracta.
+      function formatAst(node, level = 0) {
+        const indent = "  ".repeat(level);
+        if (node.type === "Number") {
+          return `${indent}Número(${node.value})`;
+        }
+        if (node.type === "BinaryOp") {
+          const header = `${indent}Operador('${node.operator}')`;
+          const left = formatAst(node.left, level + 1);
+          const right = formatAst(node.right, level + 1);
+          return `${header}\n${left}\n${right}`;
+        }
+        throw new TypeError(`Tipo de nodo desconocido: ${node.type}`);
+      }
+
+      function inicializarControlesAst() {
+        if (estadoAst.inicializado) return;
+        const prev = document.getElementById("prevStep");
+        const next = document.getElementById("nextStep");
+        if (!prev || !next) return;
+
+        prev.addEventListener("click", () => {
+          actualizarPasoAst(estadoAst.pasoActual - 1);
+        });
+        next.addEventListener("click", () => {
+          actualizarPasoAst(estadoAst.pasoActual + 1);
+        });
+
+        estadoAst.inicializado = true;
+      }
+
+      function renderizarGrafoAst(ast) {
+        const svg = document.getElementById("astGraph");
+        if (!svg || !ast) return;
+
+        inicializarControlesAst();
+
+        const anchos = new Map();
+        function medir(nodo) {
+          if (anchos.has(nodo)) return anchos.get(nodo);
+          let ancho;
+          if (nodo.type === "Number") {
+            ancho = 1;
+          } else if (nodo.type === "BinaryOp") {
+            const anchoIzquierdo = medir(nodo.left);
+            const anchoDerecho = medir(nodo.right);
+            ancho = anchoIzquierdo + anchoDerecho;
+          } else {
+            ancho = 1;
+          }
+          anchos.set(nodo, ancho);
+          return ancho;
+        }
+
+        medir(ast);
+
+        const nodos = [];
+        const enlaces = [];
+        const orden = [];
+        const anchoUnidad = 160;
+        const alturaNivel = 140;
+        const margenX = 60;
+        const margenY = 60;
+        let contadorId = 0;
+
+        function asignar(nodo, profundidad, inicio) {
+          const ancho = anchos.get(nodo) ?? 1;
+          const centro = inicio + ancho / 2;
+          const id = contadorId++;
+          const datosNodo = {
+            id,
+            type: nodo.type,
+            label: nodo.type === "Number" ? nodo.value : nodo.operator,
+            depth: profundidad,
+            x: margenX + centro * anchoUnidad,
+            y: margenY + profundidad * alturaNivel,
+          };
+          nodos.push(datosNodo);
+          orden.push(id);
+
+          if (nodo.type === "BinaryOp") {
+            const anchoIzquierdo = anchos.get(nodo.left) ?? 1;
+            const nodoIzquierdo = asignar(nodo.left, profundidad + 1, inicio);
+            const nodoDerecho = asignar(nodo.right, profundidad + 1, inicio + anchoIzquierdo);
+            enlaces.push({ source: datosNodo.id, target: nodoIzquierdo.id });
+            enlaces.push({ source: datosNodo.id, target: nodoDerecho.id });
+          }
+
+          return datosNodo;
+        }
+
+        asignar(ast, 0, 0);
+
+        const totalWidthUnits = anchos.get(ast) ?? 1;
+        const maxDepth = nodos.length
+          ? nodos.reduce((acumulado, nodoActual) => Math.max(acumulado, nodoActual.depth), 0)
+          : 0;
+        const widthPx = Math.max(totalWidthUnits * anchoUnidad + margenX * 2, 320);
+        const heightPx = Math.max((maxDepth + 1) * alturaNivel + margenY * 2, 240);
+
+        const indicePorNodo = new Map(nodos.map((nodo) => [nodo.id, nodo]));
+        const marcadoresEnlaces = enlaces
+          .map((enlace) => {
+            const origen = indicePorNodo.get(enlace.source);
+            const destino = indicePorNodo.get(enlace.target);
+            return `<line class="ast-link" data-source="${enlace.source}" data-target="${enlace.target}" x1="${origen.x}" y1="${origen.y}" x2="${destino.x}" y2="${destino.y}"></line>`;
+          })
+          .join("");
+
+        const marcadoresNodos = nodos
+          .map(
+            (nodo) => `<g class="ast-node" data-id="${nodo.id}" transform="translate(${nodo.x}, ${nodo.y})">
+              <circle r="28"></circle>
+              <text dy="0.35em">${nodo.label}</text>
+            </g>`
+          )
+          .join("");
+
+        svg.setAttribute("viewBox", `0 0 ${widthPx} ${heightPx}`);
+        svg.innerHTML = `${marcadoresEnlaces}${marcadoresNodos}`;
+
+        estadoAst.nodos = Array.from(svg.querySelectorAll(".ast-node"));
+        estadoAst.enlaces = Array.from(svg.querySelectorAll(".ast-link"));
+        estadoAst.orden = orden;
+        estadoAst.indicePorId = new Map(orden.map((id, index) => [id, index]));
+
+        const pasoInicial = orden.length ? 1 : 0;
+        actualizarPasoAst(pasoInicial);
+      }
+
+      function actualizarControlesAst() {
+        const prev = document.getElementById("prevStep");
+        const next = document.getElementById("nextStep");
+        const hayPasos = estadoAst.orden.length > 0;
+
+        if (prev) {
+          prev.disabled = !hayPasos || estadoAst.pasoActual === 0;
+        }
+        if (next) {
+          next.disabled = !hayPasos || estadoAst.pasoActual === estadoAst.orden.length;
+        }
+      }
+
+      function actualizarPasoAst(step) {
+        const pasoDeseado = Math.max(0, Math.min(step, estadoAst.orden.length));
+        estadoAst.pasoActual = pasoDeseado;
+
+        const conjuntoActivo = new Set(
+          estadoAst.orden.slice(0, estadoAst.pasoActual)
+        );
+
+        estadoAst.nodos.forEach((nodoEl) => {
+          const id = Number(nodoEl.dataset.id);
+          const indice = estadoAst.indicePorId.get(id);
+          const activo = typeof indice === "number" && indice < estadoAst.pasoActual;
+          nodoEl.classList.toggle("active", activo);
+        });
+
+        estadoAst.enlaces.forEach((enlaceEl) => {
+          const origen = Number(enlaceEl.dataset.source);
+          const destino = Number(enlaceEl.dataset.target);
+          const activo = conjuntoActivo.has(origen) && conjuntoActivo.has(destino);
+          enlaceEl.classList.toggle("active", activo);
+        });
+
+        const infoPaso = document.getElementById("stepInfo");
+        if (infoPaso) {
+          infoPaso.textContent = `Paso ${estadoAst.pasoActual} de ${estadoAst.orden.length}`;
+        }
+
+        actualizarControlesAst();
+      }
+
+      function reiniciarVisualizacionAst() {
+        const svg = document.getElementById("astGraph");
+        if (svg) {
+          svg.innerHTML = "";
+        }
+        estadoAst.nodos = [];
+        estadoAst.enlaces = [];
+        estadoAst.orden = [];
+        estadoAst.indicePorId = new Map();
+        actualizarPasoAst(0);
+      }
+
+      function construirTablasSemanticas(node) {
+        const direccionesPorValor = new Map();
+        const ordenValores = [];
+
+        function visitar(nodoActual) {
+          if (nodoActual.type === "Number") {
+            const valor = nodoActual.value;
+            if (!direccionesPorValor.has(valor)) {
+              direccionesPorValor.set(valor, `dir_${direccionesPorValor.size + 1}`);
+              ordenValores.push(valor);
+            }
+            return;
+          }
+          if (nodoActual.type === "BinaryOp") {
+            visitar(nodoActual.left);
+            visitar(nodoActual.right);
+            return;
+          }
+          throw new TypeError(`Tipo de nodo desconocido: ${nodoActual.type}`);
+        }
+
+        visitar(node);
+
+        const tablaSimbolos = ordenValores.map((valor) => ({
+          simbolo: String(valor),
+          direccion: direccionesPorValor.get(valor),
+        }));
+
+        const tablaTipos = ordenValores.map((valor) => ({
+          simbolo: String(valor),
+          tipo: "entero",
+        }));
+
+        return { tablaSimbolos, tablaTipos, direcciones: direccionesPorValor };
+      }
+
+      function generarCodigoTresDirecciones(node, direcciones) {
+        const instrucciones = [];
+        let temporal = 1;
+
+        function generar(actual) {
+          if (actual.type === "Number") {
+            return direcciones.get(actual.value);
+          }
+          if (actual.type === "BinaryOp") {
+            const izquierda = generar(actual.left);
+            const derecha = generar(actual.right);
+            const destino = `t${temporal}`;
+            temporal += 1;
+            instrucciones.push(`${destino} = ${izquierda} ${actual.operator} ${derecha}`);
+            return destino;
+          }
+          throw new TypeError(`Tipo de nodo desconocido: ${actual.type}`);
+        }
+
+        const resultado = generar(node);
+        return { instrucciones, resultado };
+      }
+
+      function mostrarError(expresion, posicion, mensaje) {
+        const errorPreview = document.getElementById("errorPreview");
+        const errorExpression = document.getElementById("errorExpression");
+        const errorMessage = document.getElementById("errorMessage");
+
+        if (posicion === null || posicion === undefined) {
+          errorExpression.textContent = expresion;
+        } else {
+          const posicionLimitada = Math.max(0, Math.min(expresion.length - 1, posicion));
+          const antes = expresion.slice(0, posicionLimitada);
+          const destacado = expresion.slice(posicionLimitada, posicionLimitada + 1) || " ";
+          const despues = expresion.slice(posicionLimitada + 1);
+          errorExpression.innerHTML = `${antes}<mark>${destacado}</mark>${despues}`;
+        }
+
+        errorMessage.textContent = mensaje;
+        errorPreview.style.display = "block";
+      }
+
+      function ocultarError() {
+        const errorPreview = document.getElementById("errorPreview");
+        errorPreview.style.display = "none";
+      }
+
+      function mostrarResultados(resultado) {
+        const tokensEl = document.getElementById("tokens");
+        const astEl = document.getElementById("ast");
+        const tablaSimbolosEl = document.getElementById("symbolTable");
+        const tablaTiposEl = document.getElementById("typeTable");
+        const codigoTresDirEl = document.getElementById("threeAddressCode");
+        const referenciaResultadoEl = document.getElementById("resultRef");
+
+        tokensEl.textContent = formatTokens(resultado.tokens);
+        astEl.textContent = formatAst(resultado.ast);
+        renderizarGrafoAst(resultado.ast);
+
+        tablaSimbolosEl.innerHTML = resultado.tablaSimbolos
+          .map(
+            (fila) =>
+              `<tr><td>${fila.simbolo}</td><td><code>${fila.direccion}</code></td></tr>`
+          )
+          .join("");
+
+        tablaTiposEl.innerHTML = resultado.tablaTipos
+          .map(
+            (fila) =>
+              `<tr><td>${fila.simbolo}</td><td><code>${fila.tipo}</code></td></tr>`
+          )
+          .join("");
+
+        codigoTresDirEl.textContent = resultado.codigoTresDirecciones.join("\n");
+        referenciaResultadoEl.textContent = `Resultado en ${resultado.referenciaResultado}`;
+      }
+
+      // Cambia la visibilidad de la sección que contiene los resultados.
+      function mostrarPanelResultados(visible) {
+        const resultsSection = document.getElementById("results");
+        resultsSection.hidden = !visible;
+      }
+
+      function analizarExpresion(expresion) {
+        const tokens = tokenizar(expresion);
+        const parser = new AnalizadorSintactico(tokens);
+        const ast = parser.parse();
+        const { tablaSimbolos, tablaTipos, direcciones } = construirTablasSemanticas(ast);
+        const { instrucciones, resultado } = generarCodigoTresDirecciones(ast, direcciones);
+
+        return {
+          tokens,
+          ast,
+          tablaSimbolos,
+          tablaTipos,
+          codigoTresDirecciones: instrucciones,
+          referenciaResultado: resultado,
+        };
+      }
+
+      // Maneja el envío del formulario principal de análisis.
+      document
+        .getElementById("analyzer")
+        .addEventListener("submit", (event) => {
+          event.preventDefault();
+          const indicadorEstado = document.getElementById("status");
+          const campoExpresion = document.getElementById("expression");
+          const expresion = campoExpresion.value.trim();
+
+          indicadorEstado.textContent = "";
+          ocultarError();
+          mostrarPanelResultados(false);
+
+          try {
+            const result = analizarExpresion(expresion);
+            mostrarResultados(result);
+            indicadorEstado.textContent = "Análisis completado con éxito.";
+            indicadorEstado.classList.remove("error");
+            indicadorEstado.classList.add("success");
+            mostrarPanelResultados(true);
+          } catch (error) {
+            indicadorEstado.textContent = "Se detectó un error en la expresión.";
+            indicadorEstado.classList.remove("success");
+            indicadorEstado.classList.add("error");
+
+            if (error instanceof ErrorLexico || error instanceof ErrorSintactico) {
+              mostrarError(expresion, error.position, error.message);
+              reiniciarVisualizacionAst();
+            } else {
+              mostrarError(
+                expresion,
+                null,
+                "Ocurrió un error inesperado. Revisa la consola para más detalles."
+              );
+              console.error(error);
+              reiniciarVisualizacionAst();
+            }
+          }
+        });
+    </script>
+  </body>
+</html>
