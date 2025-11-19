@@ -4,16 +4,20 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Simulador de Compilador Aritmético</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="card">
       <header>
-        <h1>Simulador de Compilador Aritmético</h1>
+        <h1>Simulador de Compilador Aritmético </h1>
+        <h2>miguel angel barragan bautista</h2>
         <p>
           Ingresa una expresión aritmética para observar el proceso completo:
           tokens, árbol de sintaxis abstracta, tablas semánticas y código de tres
-          direcciones. Si existe algún error, lo resaltaremos con precisión.
+          direcciones. Si existe algún error, lo resaltaremos con precisión  .
         </p>
       </header>
 
@@ -94,12 +98,12 @@
     <script>
       // Mapa entre cada símbolo y el tipo de token que representa.
       const tiposOperador = {
-        "+": "PLUS",
-        "-": "MINUS",
+        "+": "SUM",
+        "-": "RES",
         "*": "MUL",
         "/": "DIV",
-        "(": "LPAREN",
-        ")": "RPAREN",
+        "(": "PAREN_IZ",
+        ")": "PAREN_D",
       };
 
       // Estado compartido que mantiene los elementos del grafo AST y el paso activo.
@@ -193,7 +197,7 @@
         parseExpression() {
           let node = this.parseTerm();
 
-          while (this.match(new Set(["PLUS", "MINUS"]))) {
+          while (this.match(new Set(["SUM", "RES"]))) {
             const operator = this.advance().value;
             const right = this.parseTerm();
             node = { type: "BinaryOp", operator, left: node, right };
@@ -220,10 +224,10 @@
             return { type: "Number", value: Number(token.value) };
           }
 
-          if (this.match("LPAREN")) {
+          if (this.match("PAREN_IZ")) {
             this.advance();
             const node = this.parseExpression();
-            if (!this.match("RPAREN")) {
+            if (!this.match("PAREN_D")) {
               const position = this.atEnd()
                 ? this.tokens[this.index - 1].position + 1
                 : this.tokens[this.index].position;

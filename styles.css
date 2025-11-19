@@ -1,18 +1,47 @@
+/* ============================================
+   SIMULADOR DE COMPILADOR - ESTILO Y2K AERO
+   Inspirado en Windows XP/Vista Aero
+   ============================================ */
 
-p{
-  color: #f8fafc;
-
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
+
 :root {
-  color-scheme: light dark;
-  --bg: #0f172a;
-  --card-bg: #111827;
-  --accent: #38bdf8;
-  --accent-muted: rgba(56, 189, 248, 0.2);
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --error: #f87171;
-  --success: #4ade80;
+  color-scheme: dark;
+  /* Colores Y2K/Aero */
+  --electric-blue: #00BFFF;
+  --cyan: #00FFFF;
+  --soft-purple: #9370DB;
+  --metallic-silver: #C0C0C0;
+  --white: #FFFFFF;
+  --dark-blue: #001F3F;
+  --midnight: #0A0E27;
+  
+  /* Variables originales adaptadas */
+  --bg: #0A0E27;
+  --card-bg: rgba(255, 255, 255, 0.08);
+  --accent: #00BFFF;
+  --accent-muted: rgba(0, 191, 255, 0.2);
+  --text: #FFFFFF;
+  --text-muted: rgba(255, 255, 255, 0.7);
+  --error: #ff5f57;
+  --success: #28ca42;
+  
+  /* Gradientes */
+  --gradient-primary: linear-gradient(135deg, #00BFFF 0%, #9370DB 50%, #00FFFF 100%);
+  --gradient-bg: linear-gradient(135deg, #0A0E27 0%, #001F3F 30%, #0A0E27 100%);
+  --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+  --gradient-button: linear-gradient(135deg, #00BFFF 0%, #00FFFF 100%);
+  
+  /* Sombras y efectos */
+  --shadow-soft: 0 8px 32px rgba(0, 191, 255, 0.2);
+  --shadow-glow: 0 0 20px rgba(0, 255, 255, 0.5);
+  --shadow-inner: inset 0 2px 4px rgba(0, 0, 0, 0.2);
+  --shadow-text: 0 0 10px rgba(0, 255, 255, 0.8);
+  
   font-family: "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
@@ -29,24 +58,36 @@ body {
 
 .card {
   width: min(1100px, 100%);
-  background: rgba(15, 23, 42, 0.85);
-  border: 1px solid rgba(148, 163, 184, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 24px;
-  box-shadow: 0 40px 60px -40px rgba(15, 23, 42, 0.8);
-  backdrop-filter: blur(14px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 30px rgba(0, 191, 255, 0.2);
   padding: 3rem clamp(1.5rem, 4vw, 3rem);
+  position: relative;
+  z-index: 1;
 }
 
 header h1 {
   margin: 0;
   font-size: clamp(2rem, 3vw, 2.8rem);
   letter-spacing: -0.03em;
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  text-shadow: 0 0 30px rgba(0, 191, 255, 0.5);
+  filter: drop-shadow(0 0 10px rgba(0, 255, 255, 0.3));
 }
 
 header p {
   color: var(--text-muted);
   margin-top: 0.75rem;
   max-width: 60ch;
+  line-height: 1.6;
 }
 
 form {
@@ -58,6 +99,8 @@ form {
 label {
   font-weight: 600;
   letter-spacing: 0.01em;
+  color: var(--cyan);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
 }
 
 .input-group {
@@ -70,39 +113,73 @@ input[type="text"] {
   flex: 1 1 260px;
   padding: 0.85rem 1.1rem;
   border-radius: 14px;
-  border: 1px solid rgba(148, 163, 184, 0.25);
-  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(10px);
   color: var(--text);
   font-size: 1rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.3s ease;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 0 0 0 rgba(0, 191, 255, 0);
 }
 
 input[type="text"]:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-muted);
+  border-color: var(--cyan);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.2),
+    0 0 0 4px rgba(0, 191, 255, 0.2),
+    0 0 20px rgba(0, 255, 255, 0.3);
 }
 
 button {
   padding: 0.85rem 1.4rem;
   border-radius: 14px;
   border: none;
-  background: var(--accent);
-  color: #0f172a;
+  background: var(--gradient-button);
+  color: var(--white);
   font-weight: 700;
   letter-spacing: 0.02em;
   cursor: pointer;
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  transition: all 0.3s ease;
+  box-shadow: 
+    0 8px 32px rgba(0, 191, 255, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -2px 10px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+button::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+  transition: left 0.5s ease;
+}
+
+button:hover::before {
+  left: 100%;
 }
 
 button:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 20px 30px -20px rgba(56, 189, 248, 0.75);
+  transform: translateY(-2px);
+  box-shadow: 
+    0 12px 40px rgba(0, 191, 255, 0.6),
+    0 0 30px rgba(0, 255, 255, 0.8),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
 button:active {
   transform: translateY(0);
-  box-shadow: none;
+  box-shadow: 
+    0 4px 16px rgba(0, 191, 255, 0.4),
+    inset 0 2px 4px rgba(0, 0, 0, 0.3);
 }
 
 .status {
@@ -113,10 +190,12 @@ button:active {
 
 .status.success {
   color: var(--success);
+  text-shadow: 0 0 10px rgba(40, 202, 66, 0.8);
 }
 
 .status.error {
   color: var(--error);
+  text-shadow: 0 0 10px rgba(255, 95, 87, 0.8);
 }
 
 .error-preview {
@@ -124,11 +203,15 @@ button:active {
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 12px;
-  background: rgba(248, 113, 113, 0.08);
-  border: 1px solid rgba(248, 113, 113, 0.2);
+  background: rgba(255, 95, 87, 0.1);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 95, 87, 0.3);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   line-height: 1.5;
+  box-shadow: 
+    0 4px 20px rgba(255, 95, 87, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 .error-expression {
@@ -137,10 +220,11 @@ button:active {
 }
 
 .error-expression mark {
-  background: rgba(248, 113, 113, 0.6);
+  background: rgba(255, 95, 87, 0.6);
   color: var(--text);
   border-radius: 6px;
   padding: 0 0.15rem;
+  box-shadow: 0 0 10px rgba(255, 95, 87, 0.5);
 }
 
 .results {
@@ -151,8 +235,22 @@ button:active {
 .panel {
   border-radius: 18px;
   padding: 1.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(15px);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 0 20px rgba(0, 191, 255, 0.15);
+  transition: all 0.3s ease;
+}
+
+.panel:hover {
+  border-color: rgba(0, 255, 255, 0.3);
+  box-shadow: 
+    0 12px 40px rgba(0, 191, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15),
+    0 0 30px rgba(0, 255, 255, 0.3);
 }
 
 .panel h2 {
@@ -161,6 +259,9 @@ button:active {
   font-size: 1.2rem;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+  color: var(--cyan);
+  text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+  font-weight: 700;
 }
 
 .panel pre {
@@ -170,6 +271,8 @@ button:active {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
     "Liberation Mono", "Courier New", monospace;
   line-height: 1.6;
+  color: rgba(255, 255, 255, 0.9);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.3);
 }
 
 table {
@@ -183,18 +286,34 @@ th,
 td {
   text-align: left;
   padding: 0.6rem 0.8rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 th {
-  color: var(--text-muted);
+  color: var(--cyan);
   text-transform: uppercase;
   font-size: 0.75rem;
   letter-spacing: 0.08em;
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  font-weight: 700;
+}
+
+tbody tr {
+  transition: background 0.2s ease;
+}
+
+tbody tr:hover {
+  background: rgba(0, 191, 255, 0.1);
 }
 
 tbody tr:last-child td {
   border-bottom: none;
+}
+
+td code {
+  color: var(--cyan);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
+  font-weight: 600;
 }
 
 .badge {
@@ -204,12 +323,20 @@ tbody tr:last-child td {
   margin-top: 0.5rem;
   padding: 0.4rem 0.75rem;
   border-radius: 999px;
-  background: rgba(56, 189, 248, 0.1);
-  color: var(--accent);
+  background: rgba(0, 191, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(0, 255, 255, 0.3);
+  color: var(--cyan);
   font-weight: 600;
   font-size: 0.85rem;
   letter-spacing: 0.03em;
+  box-shadow: 0 0 15px rgba(0, 191, 255, 0.3);
+  text-shadow: 0 0 5px rgba(0, 255, 255, 0.5);
 }
+
+/* ============================================
+   ÁRBOL AST - DISEÑO Y2K AERO MEJORADO
+   ============================================ */
 
 .ast-view {
   display: grid;
@@ -301,6 +428,29 @@ button.secondary:disabled {
   filter: drop-shadow(0 12px 22px rgba(56, 189, 248, 0.35));
 }
 
+/* Scrollbar personalizado estilo Y2K */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--gradient-button);
+  border-radius: 6px;
+  box-shadow: 0 0 10px var(--cyan);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyan);
+  box-shadow: 0 0 15px var(--cyan);
+}
+
 @media (max-width: 720px) {
   body {
     padding: 1.5rem 0.75rem;
@@ -323,5 +473,3 @@ button.secondary:disabled {
     min-height: 220px;
   }
 }
-
-

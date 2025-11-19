@@ -52,12 +52,12 @@ class Lexer:
     """Genera tokens a partir de una cadena de entrada."""
 
     _TIPOS = {
-        "+": "PLUS",
-        "-": "MINUS",
+        "+": "SUM",
+        "-": "RES",
         "*": "MUL",
         "/": "DIV",
-        "(": "LPAREN",
-        ")": "RPAREN",
+        "(": "PAREN_IZ",
+        ")": "PAREN_D",
     }
 
     def tokenize(self, expresion: str) -> List[Token]:
@@ -127,7 +127,7 @@ class Parser:
     def _parse_expresion(self) -> ASTNode:
         nodo = self._parse_termino()
 
-        while self._coincide({"PLUS", "MINUS"}):
+        while self._coincide({"SUM", "RES"}):
             operador = self._avanzar().valor
             derecho = self._parse_termino()
             nodo = BinaryOpNode(operador, nodo, derecho)
@@ -149,10 +149,10 @@ class Parser:
             token = self._avanzar()
             return NumberNode(int(token.valor))
 
-        if self._coincide({"LPAREN"}):
+        if self._coincide({"PAREN_IZ"}):
             self._avanzar()  # consume '('
             nodo = self._parse_expresion()
-            if not self._coincide({"RPAREN"}):
+            if not self._coincide({"PAREN_D"}):
                 if not self._al_final():
                     posicion = self._tokens[self._indice].posicion
                 else:
